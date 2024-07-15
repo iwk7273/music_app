@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ピアノのキー判定アプリ</title>
+</head>
+<body>
+    <h1>ピアノのキー判定アプリ</h1>
+    <button id="start">音声入力開始</button>
+    <p id="key"></p>
+    <script>
+        document.getElementById('start').addEventListener('click', startAudioProcessing);
+
+        async function startAudioProcessing() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const source = audioContext.createMediaStreamSource(stream);
+            const analyser = audioContext.createAnalyser();
+            source.connect(analyser);
+            analyser.fftSize = 2048;
+
+            const bufferLength = analyser.fftSize;
+            const dataArray = new Float32Array(bufferLength);
+
+            function detectKey() {
+                analyser.getFloatTimeDomainData(dataArray);
+                const frequencies = detectFrequencies(dataArray, audioContext.sampleRate);
+
+                if (frequencies.length > 0) {
+                    const chord = identifyChordFromFrequencies(frequencies);
+                    document.getElementById('key').textContent = `検出された和音: ${chord}`;
+                }
+
+                requestAnimationFrame(detectKey);
+            }
+
+            detectKey();
+        }
+
+        function detectFrequencies(dataArray, sampleRate) {
+            const fft = new FFT(dataArray.length, sampleRate);
+            const spectrum = fft.forward(dataArray);
+            const frequencies = [];
+
+            for (let i = 0; i < spectrum.length; i++) {
+                if (spectrum[i] > 0.01) {
+                    const frequency = i * sampleRate / dataArray.length;
+                    frequencies.push(frequency);
+                }
+            }
+
+            return frequencies;
+        }
+
+        function identifyChordFromFrequencies(frequencies) {
+            const notes = [
+                { note: 'C', frequency: 261.63 },
+                { note: 'C#', frequency: 277.18 },
+                { note: 'D', frequency: 293.66 },
+                { note: 'D#', frequency: 311.13 },
+                { note: 'E', frequency: 329.63 },
+                { note: 'F', frequency: 349.23 },
+                { note: 'F#', frequency: 369.99 },
+                { note: 'G', frequency: 392.00 },
+                { note: 'G#', frequency: 415.30 },
+                { note: 'A', frequency: 440.00 },
+                { note: 'A#', frequency: 466.16 },
+                { note: 'B', frequency: 493.88 }
+            ];
+
+            const detectedNotes = frequencies.map(frequency => {
+                let closestNote = notes[0];
+                let minDiff = Math.abs(frequency - closestNote.frequency);
+
+                for (let i = 1; i < notes.length; i++) {
+                    const diff = Math.abs(frequency - notes[i].frequency);
+                    if (diff < minDiff) {
+                        closestNote = notes[i];
+                        minDiff = diff;
+                    }
+                }
+
+                return closestNote.note;
+            });
+
+            return identifyChordFromNotes(detectedNotes);
+        }
+
+        function identifyChordFromNotes(notes) {
+            // 和音判定ロジックの例
+            const chords = {
+                'C': ['C', 'E', 'G'],
+                'Cm': ['C', 'D#', 'G'],
+                'D': ['D', 'F#', 'A'],
+                'Dm': ['D', 'F', 'A'],
+                'E': ['E', 'G#', 'B'],
+                'Em': ['E', 'G', 'B'],
+                'F': ['F', 'A', 'C'],
+                'Fm': ['F', 'G#', 'C'],
+                'G': ['G', 'B', 'D'],
+                'Gm': ['G', 'A#', 'D'],
+                'A': ['A', 'C#', 'E'],
+                'Am': ['A', 'C', 'E'],
+                'B': ['B', 'D#', 'F#'],
+                'Bm': ['B', 'D', 'F#']
+            };
+
+            for (let chord in chords) {
+                if (chords[chord].every(note => notes.includes(note))) {
+                    return chord;
+                }
+            }
+
+            return '不明';
+        }
+
+        // FFTアルゴリズムの実装（省略、外部ライブラリを利用してください）
+        class FFT {
+            constructor(bufferSize, sampleRate) {
+                this.bufferSize = bufferSize;
+                this.sampleRate = sampleRate;
+            }
+
+            forward(dataArray) {
+                // FFTアルゴリズムの実装
+                // 必要に応じて外部のFFTライブラリを利用してください
+                return new Array(dataArray.length).fill(0);
+            }
+        }
+    </script>
+</body>
+</html>
